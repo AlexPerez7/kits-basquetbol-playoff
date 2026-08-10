@@ -1,0 +1,559 @@
+<!-- Sistema de Gestión de Producción — Kits de Básquetbol -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#EEF1F6; --surface:#FFFFFF; --ink:#12161F; --muted:#5B6472;
+    --line:#E2E6EE; --band:#131A2B; --band-2:#1D2942;
+    --primary:#23408E; --alert:#E8542B; --ok:#16A34A; --black:#0B0E14;
+    --s0:#64748B; --s1:#6366F1; --s2:#A855F7; --s3:#EC4899;
+    --s4:#F97316; --s5:#EAB308; --s6:#10B981; --s7:#16A34A;
+    --radius:14px; --shadow:0 1px 2px rgba(18,22,31,.06),0 8px 24px rgba(18,22,31,.06);
+    --font:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    --display:'Oswald',var(--font);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--font); background:var(--bg); color:var(--ink); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased}
+  button{font-family:inherit; cursor:pointer}
+  input,select,textarea{font-family:inherit; font-size:14px}
+  :focus-visible{outline:2px solid var(--primary); outline-offset:2px; border-radius:6px}
+
+  /* ---------- SCOREBOARD ---------- */
+  .scoreboard{background:linear-gradient(180deg,var(--band),var(--band-2)); color:#fff; padding:16px clamp(14px,3vw,28px) 18px; position:sticky; top:0; z-index:20; box-shadow:0 6px 22px rgba(0,0,0,.18)}
+  .topline{display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+  .brand{display:flex; align-items:center; gap:12px; margin-right:auto}
+  .mark{width:42px; height:42px; border-radius:11px; flex:none; background:radial-gradient(circle at 30% 25%,#F6863F,var(--alert)); display:grid; place-items:center; box-shadow:inset 0 0 0 2px rgba(255,255,255,.18); position:relative}
+  .mark::before,.mark::after{content:""; position:absolute; background:rgba(19,26,43,.55)}
+  .mark::before{width:2px; height:100%; left:50%; transform:translateX(-1px)}
+  .mark::after{width:100%; height:2px; top:50%; transform:translateY(-1px)}
+  .brand h1{font-family:var(--display); font-weight:700; letter-spacing:.5px; font-size:19px; margin:0; line-height:1.05; text-transform:uppercase}
+  .brand p{margin:2px 0 0; font-size:11.5px; color:#A7B2C9; letter-spacing:.3px}
+  .kpis{display:flex; gap:10px}
+  .kpi{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); border-radius:11px; padding:8px 14px; min-width:78px; text-align:center}
+  .kpi .n{font-family:var(--display); font-size:24px; font-weight:700; line-height:1}
+  .kpi .l{font-size:10px; text-transform:uppercase; letter-spacing:.7px; color:#9FABC4; margin-top:3px}
+  .kpi.alert .n{color:#FF9E76}
+  .kpi.crit .n{color:#FF8A8A}
+  .kpi.crit{border-color:rgba(255,138,138,.35)}
+
+  /* ---------- PIPELINE ---------- */
+  .pipeline{display:flex; gap:0; margin-top:16px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin}
+  .node{flex:1 0 auto; min-width:104px; position:relative; display:flex; flex-direction:column; align-items:center; gap:5px; padding:2px 6px; background:none; border:0; color:#fff}
+  .node .dot{width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-family:var(--display); font-weight:700; font-size:15px; border:2px solid transparent; transition:transform .18s, box-shadow .18s; color:#fff}
+  .node .cnt{position:absolute; top:-6px; right:calc(50% - 30px); min-width:19px; height:19px; padding:0 4px; border-radius:10px; background:#fff; color:var(--band); font-family:var(--display); font-weight:700; font-size:11px; display:grid; place-items:center; box-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .node .cnt[data-zero="1"]{background:rgba(255,255,255,.22); color:rgba(255,255,255,.65); box-shadow:none}
+  .node .nm{font-size:10.5px; letter-spacing:.3px; text-align:center; color:#C4CDDF; text-transform:uppercase; font-weight:600}
+  .node::after{content:""; position:absolute; top:19px; left:calc(50% + 22px); right:calc(-50% + 22px); height:2px; background:rgba(255,255,255,.16)}
+  .node:last-child::after{display:none}
+  .node:hover .dot{transform:translateY(-2px)}
+  .node.active .dot{box-shadow:0 0 0 3px rgba(255,255,255,.85)}
+  .node.active .nm{color:#fff}
+
+  /* ---------- TOOLBAR ---------- */
+  .toolbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:14px clamp(14px,3vw,28px); position:sticky; top:0; z-index:10}
+  .toolbar .grow{flex:1 1 200px; min-width:180px}
+  .field{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; width:100%; color:var(--ink)}
+  select.field{appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%235B6472' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat:no-repeat; background-position:right 11px center; padding-right:30px}
+  .btn{border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:9px 14px; font-weight:600; white-space:nowrap; transition:background .15s, border-color .15s}
+  .btn:hover{background:#F6F8FC}
+  .btn.primary{background:var(--primary); border-color:var(--primary); color:#fff}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.danger{background:var(--alert); border-color:var(--alert); color:#fff}
+  .btn.danger:hover{filter:brightness(1.06)}
+  .btn.ghost{background:none; border:0; color:var(--muted); padding:9px 8px}
+  .btn.ghost:hover{color:var(--alert); background:none}
+  .chip{display:inline-flex; align-items:center; gap:7px; font-weight:600; font-size:12.5px; background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:6px 6px 6px 12px}
+  .chip b{color:var(--ink)}
+  .chip button{border:0; background:#EEF1F6; border-radius:50%; width:18px; height:18px; line-height:1; color:var(--muted); font-size:13px}
+
+  /* ---------- BOARD ---------- */
+  .board{display:flex; gap:14px; padding:0 clamp(14px,3vw,28px) 40px; overflow-x:auto; align-items:flex-start; min-height:50vh}
+  .col{flex:0 0 264px; background:rgba(255,255,255,.55); border:1px solid var(--line); border-radius:var(--radius); display:flex; flex-direction:column; max-height:calc(100vh - 60px)}
+  .col.drop-target{outline:2px dashed var(--primary); outline-offset:-3px; background:rgba(35,64,142,.06)}
+  .col-head{display:flex; align-items:center; gap:9px; padding:12px 14px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(255,255,255,.9); backdrop-filter:blur(6px); border-radius:var(--radius) var(--radius) 0 0}
+  .col-head .swatch{width:11px; height:11px; border-radius:3px; flex:none}
+  .col-head h3{margin:0; font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px}
+  .col-head .num{margin-left:auto; font-family:var(--display); font-weight:700; color:var(--muted)}
+  .col-body{padding:10px; display:flex; flex-direction:column; gap:10px; overflow-y:auto}
+  .col-empty{color:var(--muted); font-size:12px; text-align:center; padding:18px 8px; border:1px dashed var(--line); border-radius:10px}
+
+  /* ---------- CARD ---------- */
+  .card{background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--sc); border-radius:11px; padding:11px 12px 10px; box-shadow:var(--shadow); animation:pop .22s ease; cursor:grab}
+  .card:active{cursor:grabbing}
+  .card.dragging{opacity:.4; pointer-events:none; box-shadow:0 12px 30px rgba(18,22,31,.18)}
+  .card.critical{border-left-color:var(--black); box-shadow:0 0 0 1.5px var(--black) inset, var(--shadow)}
+  @keyframes pop{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+  .card .r1{display:flex; align-items:center; gap:8px}
+  .card .ot{font-family:var(--display); font-weight:700; font-size:15px; letter-spacing:.5px}
+  .card .club{font-weight:600; font-size:13.5px; margin:5px 0 1px; line-height:1.25}
+  .card .prod{color:var(--muted); font-size:12.5px}
+  .card .meta{display:flex; align-items:center; gap:8px; margin-top:9px; flex-wrap:wrap; font-size:11.5px; color:var(--muted)}
+  .badge{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:6px}
+  .p-critica{background:var(--black); color:#fff}
+  .p-alta{background:#FCE7DF; color:#B23A16}
+  .p-media{background:#FEF3D6; color:#8A5B00}
+  .p-baja{background:#E4EAF3; color:#42506B}
+  .ret{display:inline-flex; align-items:center; gap:3px; background:#FCE7DF; color:#B23A16; font-weight:700; font-size:11px; padding:2px 7px; border-radius:6px; cursor:help}
+  .due{display:inline-flex; align-items:center; gap:4px}
+  .due.late{color:var(--alert); font-weight:700}
+  .card .clock{margin-top:9px}
+  .clock-row{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11.5px}
+  .cd{display:inline-flex; align-items:center; gap:4px; font-weight:700; padding:2px 8px; border-radius:6px; white-space:nowrap}
+  .cd-ok{background:#DCFCE7; color:#15803D}
+  .cd-warn{background:#FEF3D6; color:#8A5B00}
+  .cd-late{background:#FEE2E2; color:#B91C1C}
+  .edate{color:var(--muted); font-weight:600; white-space:nowrap}
+  .bar{height:5px; background:#EAEEF5; border-radius:4px; overflow:hidden; margin-top:6px}
+  .bar span{display:block; height:100%; border-radius:4px}
+  .resp{display:inline-flex; align-items:center; gap:5px}
+  .resp .av{width:18px; height:18px; border-radius:50%; background:var(--primary); color:#fff; font-size:9px; font-weight:700; display:grid; place-items:center; font-family:var(--display)}
+  .card .r-act{display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:9px; border-top:1px solid var(--line)}
+  .nav{border:1px solid var(--line); background:#fff; width:28px; height:26px; border-radius:7px; color:var(--ink); font-size:13px; display:grid; place-items:center}
+  .nav:hover:not(:disabled){background:#F2F5FA}
+  .nav:disabled{opacity:.35; cursor:default}
+  .nav.fwd{background:var(--sc); border-color:var(--sc); color:#fff; flex:1; font-weight:700; font-size:12px; letter-spacing:.3px}
+  .nav.fwd:hover{filter:brightness(1.07)}
+  .cn-btn{border:1px solid var(--line); background:#fff; width:28px; height:26px; border-radius:7px; display:grid; place-items:center; font-size:11px; color:var(--black)}
+  .cn-btn:hover{background:#F2F5FA}
+  .cn-btn.on{background:var(--black); border-color:var(--black); color:#fff}
+  .kebab{border:0; background:none; color:var(--muted); font-size:17px; line-height:1; padding:2px 6px; border-radius:6px}
+  .kebab:hover{background:#EEF1F6; color:var(--ink)}
+
+  /* ---------- MODAL ---------- */
+  .scrim{position:fixed; inset:0; background:rgba(15,20,32,.5); backdrop-filter:blur(2px); display:none; align-items:flex-start; justify-content:center; padding:5vh 16px; z-index:50; overflow:auto}
+  .scrim.open{display:flex}
+  .modal{background:var(--surface); border-radius:18px; width:min(560px,100%); box-shadow:0 24px 70px rgba(10,14,24,.4); animation:pop .2s ease}
+  .modal header{padding:18px 22px 4px; display:flex; align-items:center}
+  .modal header h2{font-family:var(--display); font-weight:700; text-transform:uppercase; letter-spacing:.5px; font-size:18px; margin:0}
+  .modal header .x{margin-left:auto; border:0; background:#EEF1F6; width:30px; height:30px; border-radius:9px; font-size:16px; color:var(--muted)}
+  .modal .body{padding:14px 22px 8px; display:grid; grid-template-columns:1fr 1fr; gap:13px}
+  .modal .body .full{grid-column:1/-1}
+  label.lbl{font-size:11.5px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); display:block; margin-bottom:5px}
+  .modal footer{padding:8px 22px 20px; display:flex; gap:10px; align-items:center}
+  .modal footer .del{margin-right:auto; color:var(--alert); border-color:transparent; background:none; font-weight:600}
+  .modal footer .del:hover{background:#FCE7DF}
+  textarea.field{resize:vertical; min-height:56px}
+  .rt-info{background:#F6F8FC; border:1px solid var(--line); border-radius:11px; padding:11px 13px; font-size:13.5px}
+  .hist{display:flex; flex-direction:column; gap:8px; max-height:190px; overflow:auto}
+  .hist-item{background:#FCF1EE; border:1px solid #F3D9D0; border-left:3px solid var(--alert); border-radius:9px; padding:9px 11px}
+  .hist-top{display:flex; justify-content:space-between; align-items:center; font-size:11.5px; font-weight:700; color:#B23A16}
+  .hist-date{color:var(--muted)}
+  .hist-motivo{font-size:13px; margin:3px 0 2px}
+  .hist-meta{font-size:11.5px; color:var(--muted)}
+
+  .footer-note{text-align:center; color:var(--muted); font-size:11.5px; padding:0 16px 26px}
+  .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--band); color:#fff; padding:10px 18px; border-radius:11px; font-size:13px; font-weight:500; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.25s; z-index:60; pointer-events:none}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:640px){
+    .kpis{order:3; width:100%}
+    .kpi{flex:1}
+    .modal .body{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<header class="scoreboard">
+  <div class="topline">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"></div>
+      <div>
+        <h1>Línea de Producción</h1>
+        <p>Kits deportivos · Clubes de básquetbol · Chile</p>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="kpiActivas">0</div><div class="l">Activas</div></div>
+      <div class="kpi crit"><div class="n" id="kpiCrit">0</div><div class="l">Código Negro</div></div>
+      <div class="kpi alert"><div class="n" id="kpiAtras">0</div><div class="l">Atrasadas</div></div>
+      <div class="kpi"><div class="n" id="kpiEntreg">0</div><div class="l">Entregadas</div></div>
+    </div>
+  </div>
+  <nav class="pipeline" id="pipeline" aria-label="Etapas de producción"></nav>
+</header>
+
+<div class="toolbar">
+  <button class="btn primary" id="btnNew">+ Nueva OT</button>
+  <div class="grow"><input class="field" id="search" type="search" placeholder="Buscar OT, club o producto…" aria-label="Buscar"></div>
+  <select class="field" id="fClub" style="max-width:200px" aria-label="Filtrar por club"><option value="">Todos los clubes</option></select>
+  <select class="field" id="fPrio" style="max-width:170px" aria-label="Filtrar por prioridad">
+    <option value="">Toda prioridad</option><option value="Crítica">Código Negro</option><option value="Alta">Alta</option><option value="Media">Media</option><option value="Baja">Baja</option>
+  </select>
+  <span class="chip" id="stageChip" style="display:none"></span>
+  <button class="btn ghost" id="btnReset" title="Reiniciar datos de ejemplo">Reiniciar</button>
+</div>
+
+<div class="board" id="board"></div>
+<p class="footer-note" id="foot"></p>
+
+<!-- Modal OT -->
+<div class="scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <header><h2 id="mTitle">Nueva OT</h2><button class="x" id="mClose" aria-label="Cerrar">✕</button></header>
+    <div class="body">
+      <div class="full"><label class="lbl" for="fClubName">Club *</label><input class="field" id="fClubName" list="clubList" placeholder="Ej: Club Deportivo Quilpué"></div>
+      <datalist id="clubList"></datalist>
+      <div class="full"><label class="lbl" for="fProd">Producto</label><select class="field" id="fProd"></select></div>
+      <div><label class="lbl" for="fQty">Cantidad</label><input class="field" id="fQty" type="number" min="1" value="1"></div>
+      <div><label class="lbl" for="fPrioM">Prioridad</label><select class="field" id="fPrioM">
+        <option value="Crítica">Código Negro (crítica)</option><option>Alta</option><option selected>Media</option><option>Baja</option>
+      </select></div>
+      <div><label class="lbl" for="fResp">Responsable</label><input class="field" id="fResp" placeholder="Nombre"></div>
+      <div><label class="lbl" for="fStage">Etapa actual</label><select class="field" id="fStage"></select></div>
+      <div class="full rt-info" id="plazoInfo"></div>
+      <div class="full"><label class="lbl" for="fNotes">Notas / especificaciones</label><textarea class="field" id="fNotes" placeholder="Tallas, colores, números, nombres de jugadores…"></textarea></div>
+      <div class="full" id="histWrap" style="display:none"><label class="lbl">Historial de retrocesos</label><div id="histReturns" class="hist"></div></div>
+    </div>
+    <footer>
+      <button class="btn del" id="mDelete" style="display:none">Eliminar</button>
+      <button class="btn" id="mCancel">Cancelar</button>
+      <button class="btn primary" id="mSave">Guardar OT</button>
+    </footer>
+  </div>
+</div>
+
+<!-- Modal Retroceso -->
+<div class="scrim" id="scrim2">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rTitle">
+    <header><h2 id="rTitle">Registrar retroceso</h2><button class="x" id="rClose" aria-label="Cerrar">✕</button></header>
+    <div class="body">
+      <div class="full rt-info" id="rInfo"></div>
+      <div><label class="lbl" for="rArea">Área que devuelve *</label><select class="field" id="rArea"></select></div>
+      <div><label class="lbl" for="rBy">Reportado por</label><input class="field" id="rBy" placeholder="Persona"></div>
+      <div class="full"><label class="lbl" for="rMotivo">Motivo del retroceso *</label><textarea class="field" id="rMotivo" placeholder="Ej: números mal ubicados, tela con falla, medidas erradas…"></textarea></div>
+    </div>
+    <footer>
+      <button class="btn" id="rCancel">Cancelar</button>
+      <button class="btn danger" id="rConfirm">Confirmar retroceso</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STAGES = [
+  {k:'servicio',  n:'Servicio',  ab:'SV', hex:'#64748B', d:'Atención y toma de pedido'},
+  {k:'ot',        n:'OT',        ab:'OT', hex:'#6366F1', d:'Orden de trabajo confirmada'},
+  {k:'diseno',    n:'Diseño',    ab:'DS', hex:'#A855F7', d:'Diseño gráfico del kit'},
+  {k:'ploteado',  n:'Ploteado',  ab:'PL', hex:'#EC4899', d:'Trazado de moldes / plotter'},
+  {k:'impresion', n:'Impresión', ab:'IM', hex:'#F97316', d:'Sublimación / impresión'},
+  {k:'corte',     n:'Corte',     ab:'CO', hex:'#EAB308', d:'Corte de piezas'},
+  {k:'modista',   n:'Modista',   ab:'MD', hex:'#10B981', d:'Confección y costura'},
+  {k:'entrega',   n:'Entrega',   ab:'EN', hex:'#16A34A', d:'Entrega final al club'},
+];
+const PRIOS={'Crítica':{cls:'p-critica',label:'Código Negro',rank:0},'Alta':{cls:'p-alta',label:'Alta',rank:1},'Media':{cls:'p-media',label:'Media',rank:2},'Baja':{cls:'p-baja',label:'Baja',rank:3}};
+const PRODUCTS=['Polera','Short','Camiseta','Polerón','Polera reversible','Pantalón'];
+const stageIdx = k => STAGES.findIndex(s=>s.k===k);
+const stageOf  = k => STAGES[stageIdx(k)];
+const prioOf   = p => PRIOS[p] || PRIOS['Media'];
+
+// ---------- Storage ----------
+const KEY='prod:data';
+let mem=null;
+const store={
+  async load(){ if(window.storage){ try{const r=await window.storage.get(KEY); return r?JSON.parse(r.value):null;}catch(e){return null;} } return mem; },
+  async save(data){ mem=data; if(window.storage){ try{await window.storage.set(KEY,JSON.stringify(data));}catch(e){console.warn('save',e);} } }
+};
+
+let state={seq:0, ots:[]};
+let filters={stage:'', club:'', prio:'', q:''};
+let editingId=null;
+let dragId=null, dragCol=null;
+let pendingReturn=null;
+
+// ---------- Datos de ejemplo ----------
+function seed(){
+  const today=new Date();
+  const d=off=>{const x=new Date(today); x.setDate(x.getDate()+off); return fmtISO(x);};
+  return {seq:5, ots:[
+    {id:'OT-2026-001', club:'Club Deportivo Quilpué', prod:'Polera reversible', qty:15, prio:'Crítica', resp:'María', stage:'diseno', notes:'Colores azul/blanco, números 4–15.', created:d(-5), returns:[]},
+    {id:'OT-2026-002', club:'Titanes de Valparaíso', prod:'Camiseta', qty:12, prio:'Media', resp:'Pedro', stage:'impresion', notes:'Sublimación full, escudo bordado.', created:d(-18), returns:[{from:'ploteado',to:'diseno',area:'Ploteado',by:'Pedro',motivo:'Molde con medidas erradas en la manga.',date:d(-14)}]},
+    {id:'OT-2026-003', club:'Básquet Los Andes', prod:'Pantalón', qty:10, prio:'Baja', resp:'Carla', stage:'corte', notes:'Tallas mixtas S–XL.', created:d(-25), returns:[]},
+    {id:'OT-2026-004', club:'Club Deportivo Quilpué', prod:'Short', qty:20, prio:'Media', resp:'José', stage:'servicio', notes:'', created:d(-1), returns:[]},
+    {id:'OT-2026-005', club:'Halcones de Viña', prod:'Polerón', qty:8, prio:'Alta', resp:'Ana', stage:'entrega', notes:'Entregado en tienda.', created:d(-20), returns:[]},
+  ]};
+}
+
+// ---------- Init ----------
+(async function init(){
+  const saved=await store.load();
+  state = saved || seed();
+  if(!saved) await store.save(state);
+  buildPipeline(); buildStageSelects(); bindUI(); render();
+})();
+
+function buildPipeline(){
+  const p=document.getElementById('pipeline'); p.innerHTML='';
+  STAGES.forEach(s=>{
+    const b=document.createElement('button');
+    b.className='node'; b.dataset.k=s.k; b.title=s.d;
+    b.innerHTML=`<span class="cnt" data-cnt="${s.k}">0</span><span class="dot" style="background:${s.hex}">${s.ab}</span><span class="nm">${s.n}</span>`;
+    b.onclick=()=>{ filters.stage = filters.stage===s.k ? '' : s.k; render(); };
+    p.appendChild(b);
+  });
+}
+function buildStageSelects(){
+  const opts=STAGES.map(s=>`<option value="${s.k}">${s.n}</option>`).join('');
+  document.getElementById('fStage').innerHTML=opts;
+  document.getElementById('rArea').innerHTML=STAGES.map(s=>`<option value="${s.n}">${s.n}</option>`).join('');
+}
+
+// ---------- Helpers ----------
+const PLAZO=21; // días de plazo de producción por OT
+function fmtISO(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+const todayStr=()=>fmtISO(new Date());
+const addDays=(iso,n)=>{ const d=new Date((iso||todayStr())+'T00:00:00'); d.setDate(d.getDate()+n); return fmtISO(d); };
+const daysBetween=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+const estimEntrega=o=>addDays(o.created, PLAZO);
+const countdown=o=>{ const estim=estimEntrega(o); return {estim, rem:daysBetween(todayStr(), estim)}; };
+const isLate=o=>o.stage!=='entrega' && countdown(o).rem<0;
+const fmtDue=d=>{ if(!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}`; };
+const fmtDate=d=>{ if(!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
+const initials=n=>(n||'').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'—';
+
+function visible(o){
+  if(filters.stage && o.stage!==filters.stage) return false;
+  if(filters.club && o.club!==filters.club) return false;
+  if(filters.prio && o.prio!==filters.prio) return false;
+  if(filters.q){ const t=(o.id+' '+o.club+' '+o.prod+' '+(o.resp||'')).toLowerCase(); if(!t.includes(filters.q.toLowerCase())) return false; }
+  return true;
+}
+
+// ---------- Render ----------
+function render(){
+  const board=document.getElementById('board'); board.innerHTML='';
+
+  document.getElementById('kpiActivas').textContent=state.ots.filter(o=>o.stage!=='entrega').length;
+  document.getElementById('kpiEntreg').textContent=state.ots.filter(o=>o.stage==='entrega').length;
+  document.getElementById('kpiAtras').textContent=state.ots.filter(isLate).length;
+  document.getElementById('kpiCrit').textContent=state.ots.filter(o=>o.prio==='Crítica' && o.stage!=='entrega').length;
+
+  STAGES.forEach(s=>{
+    const n=state.ots.filter(o=>o.stage===s.k).length;
+    const el=document.querySelector(`[data-cnt="${s.k}"]`);
+    el.textContent=n; el.dataset.zero = n===0?'1':'0';
+    document.querySelector(`.node[data-k="${s.k}"]`).classList.toggle('active', filters.stage===s.k);
+  });
+
+  const chip=document.getElementById('stageChip');
+  if(filters.stage){ chip.style.display='inline-flex';
+    chip.innerHTML=`Etapa: <b>${stageOf(filters.stage).n}</b><button aria-label="Quitar filtro">✕</button>`;
+    chip.querySelector('button').onclick=()=>{filters.stage=''; render();};
+  } else chip.style.display='none';
+
+  const shown = filters.stage ? STAGES.filter(s=>s.k===filters.stage) : STAGES;
+  shown.forEach(s=>{
+    const list=state.ots.filter(o=>o.stage===s.k && visible(o))
+      .sort((a,b)=>(prioOf(a.prio).rank-prioOf(b.prio).rank) || (a.due||'').localeCompare(b.due||''));
+    const col=document.createElement('section'); col.className='col'; col.dataset.stage=s.k;
+    col.innerHTML=`<div class="col-head"><span class="swatch" style="background:${s.hex}"></span><h3>${s.n}</h3><span class="num">${list.length}</span></div><div class="col-body"></div>`;
+    const body=col.querySelector('.col-body');
+    if(!list.length){ const e=document.createElement('div'); e.className='col-empty'; e.textContent='Sin OT en esta etapa'; body.appendChild(e); }
+    list.forEach(o=>body.appendChild(cardEl(o)));
+    board.appendChild(col);
+  });
+
+  refreshClubFilters();
+  document.getElementById('foot').textContent=`${state.ots.length} OT en total · Los datos se guardan automáticamente en este dispositivo.`;
+}
+
+function cardEl(o){
+  const s=stageOf(o.stage), i=stageIdx(o.stage), pr=prioOf(o.prio);
+  const el=document.createElement('article'); el.className='card'+(o.prio==='Crítica'?' critical':'');
+  el.style.setProperty('--sc',s.hex); el.draggable=true; el.dataset.id=o.id;
+  el.addEventListener('dragstart',e=>{ dragId=o.id; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',o.id); requestAnimationFrame(()=>el.classList.add('dragging')); });
+  el.addEventListener('dragend',()=>{ el.classList.remove('dragging'); clearDropTargets(); dragId=null; dragCol=null; });
+  const rets=(o.returns||[]).length, delivered=o.stage==='entrega', cd=countdown(o);
+  let cdCls,cdText,barCol,pct;
+  if(delivered){ cdCls='cd-ok'; cdText='✓ Entregada'; barCol='var(--ok)'; pct=100; }
+  else { const rem=cd.rem;
+    cdCls = rem<0?'cd-late' : rem<=5?'cd-warn' : 'cd-ok';
+    cdText = rem<0?`⏱ Atrasada ${-rem}d` : rem===0?'⏱ Vence hoy' : `⏱ ${rem} día${rem===1?'':'s'} rest.`;
+    barCol = rem<0?'var(--alert)' : rem<=5?'#EAB308' : 'var(--ok)';
+    const elapsed=Math.max(0,Math.min(PLAZO,daysBetween(o.created||todayStr(),todayStr())));
+    pct = rem<0?100:Math.min(100,Math.round(elapsed/PLAZO*100));
+  }
+  el.innerHTML=`
+    <div class="r1"><span class="ot" style="color:${o.prio==='Crítica'?'var(--black)':s.hex}">${o.id}</span>
+      <span class="badge ${pr.cls}" style="margin-left:auto">${pr.label}</span></div>
+    <div class="club">${esc(o.club)}</div>
+    <div class="prod">${esc(o.prod||'—')} · <b>${o.qty}</b> u.</div>
+    <div class="clock">
+      <div class="clock-row"><span class="cd ${cdCls}">${cdText}</span><span class="edate">Entrega est. ${fmtDue(cd.estim)}</span></div>
+      <div class="bar"><span style="width:${pct}%; background:${barCol}"></span></div>
+    </div>
+    <div class="meta">
+      ${rets?`<span class="ret" title="${esc((o.returns.at(-1)||{}).motivo||'')}">↩ ${rets} retroceso${rets>1?'s':''}</span>`:''}
+      ${o.resp?`<span class="resp"><span class="av">${initials(o.resp)}</span>${esc(o.resp)}</span>`:''}
+    </div>
+    <div class="r-act">
+      <button class="nav back" ${i===0?'disabled':''} title="Retroceder etapa">◀</button>
+      <button class="nav fwd" ${i===STAGES.length-1?'disabled':''}>${i===STAGES.length-1?'Entregada ✓':'Avanzar ▶'}</button>
+      <button class="cn-btn ${o.prio==='Crítica'?'on':''}" title="Código negro (prioridad crítica)">⬤</button>
+      <button class="kebab" title="Editar">⋯</button>
+    </div>`;
+  el.querySelector('.back').onclick=()=>requestMove(o.id, i>0?STAGES[i-1].k:o.stage);
+  el.querySelector('.fwd').onclick=()=>requestMove(o.id, i<STAGES.length-1?STAGES[i+1].k:o.stage);
+  el.querySelector('.cn-btn').onclick=()=>toggleCodigoNegro(o.id);
+  el.querySelector('.kebab').onclick=()=>openModal(o.id);
+  return el;
+}
+
+// ---------- Movimiento de etapa ----------
+function requestMove(id,key){
+  const o=state.ots.find(x=>x.id===id); if(!o) return;
+  const ci=stageIdx(o.stage), ti=stageIdx(key);
+  if(ti<0||ti===ci) return;
+  if(ti>ci) applyStage(id,key); else openReturn(o,key);
+}
+async function applyStage(id,key){
+  const o=state.ots.find(x=>x.id===id); if(!o||o.stage===key) return;
+  o.stage=key; await store.save(state); render(); toast(`${id} → ${stageOf(key).n}`);
+}
+async function toggleCodigoNegro(id){
+  const o=state.ots.find(x=>x.id===id); if(!o) return;
+  if(o.prio==='Crítica'){ o.prio=o.prioPrev||'Media'; toast(`${id} → prioridad ${o.prio}`); }
+  else { o.prioPrev=o.prio; o.prio='Crítica'; toast(`${id} marcada CÓDIGO NEGRO`); }
+  await store.save(state); render();
+}
+
+// ---------- Retroceso ----------
+function openReturn(o, targetKey){
+  pendingReturn={id:o.id, from:o.stage, to:targetKey};
+  document.getElementById('rArea').value=stageOf(o.stage).n;
+  document.getElementById('rBy').value=o.resp||'';
+  document.getElementById('rMotivo').value='';
+  document.getElementById('rInfo').innerHTML=`<b>${o.id}</b> retrocede de <b style="color:${stageOf(o.stage).hex}">${stageOf(o.stage).n}</b> → <b style="color:${stageOf(targetKey).hex}">${stageOf(targetKey).n}</b>`;
+  document.getElementById('scrim2').classList.add('open');
+  setTimeout(()=>document.getElementById('rMotivo').focus(),50);
+}
+function closeReturn(){ document.getElementById('scrim2').classList.remove('open'); pendingReturn=null; }
+async function confirmReturn(){
+  if(!pendingReturn) return;
+  const motivo=document.getElementById('rMotivo').value.trim();
+  if(!motivo){ document.getElementById('rMotivo').focus(); toast('Indica el motivo del retroceso'); return; }
+  const o=state.ots.find(x=>x.id===pendingReturn.id); if(!o){ closeReturn(); return; }
+  (o.returns=o.returns||[]).push({ from:pendingReturn.from, to:pendingReturn.to, area:document.getElementById('rArea').value, by:document.getElementById('rBy').value.trim(), motivo, date:todayStr() });
+  o.stage=pendingReturn.to;
+  await store.save(state); const dest=stageOf(pendingReturn.to).n; closeReturn(); render(); toast(`${o.id} retrocedió a ${dest}`);
+}
+
+// ---------- Modal OT ----------
+function openModal(id){
+  editingId=id||null;
+  document.getElementById('mTitle').textContent = id?`Editar ${id}`:'Nueva OT';
+  document.getElementById('mDelete').style.display = id?'inline-block':'none';
+  const o = id ? state.ots.find(x=>x.id===id) : null;
+  gv('fClubName',o?.club); fillProducts(o?.prod); gv('fQty',o?.qty??1);
+  document.getElementById('fPrioM').value=o?.prio||'Media';
+  gv('fResp',o?.resp); document.getElementById('fStage').value=o?.stage||'servicio';
+  fillPlazoInfo(o);
+  gv('fNotes',o?.notes);
+  renderHist(o);
+  refreshClubList();
+  document.getElementById('scrim').classList.add('open');
+  setTimeout(()=>document.getElementById('fClubName').focus(),50);
+}
+function closeModal(){ document.getElementById('scrim').classList.remove('open'); editingId=null; }
+function fillProducts(current){
+  const sel=document.getElementById('fProd');
+  let opts='<option value="">— Selecciona —</option>'+PRODUCTS.map(p=>`<option>${p}</option>`).join('');
+  if(current && !PRODUCTS.includes(current)) opts+=`<option>${esc(current)}</option>`;
+  sel.innerHTML=opts; sel.value=current||'';
+}
+function fillPlazoInfo(o){
+  const base=o?.created||todayStr();
+  const est=addDays(base,PLAZO), rem=daysBetween(todayStr(),est);
+  const estado = (o&&o.stage==='entrega') ? 'Entregada' : rem<0 ? `atrasada ${-rem} día(s)` : rem===0 ? 'vence hoy' : `${rem} día(s) restantes`;
+  document.getElementById('plazoInfo').innerHTML=
+    `⏱ Plazo de producción: <b>${PLAZO} días</b> · Generada: <b>${o?fmtDate(base):'hoy'}</b><br>Entrega estimada: <b>${fmtDate(est)}</b> · <b>${estado}</b>`;
+}
+function renderHist(o){
+  const wrap=document.getElementById('histWrap'), box=document.getElementById('histReturns');
+  const rs=(o&&o.returns)||[];
+  if(!rs.length){ wrap.style.display='none'; box.innerHTML=''; return; }
+  wrap.style.display='block';
+  box.innerHTML=rs.slice().reverse().map(r=>`
+    <div class="hist-item">
+      <div class="hist-top"><span>${esc(stageOf(r.from)?.n||r.from)} → ${esc(stageOf(r.to)?.n||r.to)}</span><span class="hist-date">${fmtDue(r.date)}</span></div>
+      <div class="hist-motivo">${esc(r.motivo)}</div>
+      <div class="hist-meta">Área: <b>${esc(r.area||'—')}</b>${r.by?` · Reportó: ${esc(r.by)}`:''}</div>
+    </div>`).join('');
+}
+async function saveOT(){
+  const club=val('fClubName').trim();
+  if(!club){ document.getElementById('fClubName').focus(); toast('Ingresa el nombre del club'); return; }
+  const data={ club, prod:val('fProd').trim(), qty:Math.max(1,parseInt(val('fQty'))||1), prio:val('fPrioM'), resp:val('fResp').trim(), stage:val('fStage'), notes:val('fNotes').trim() };
+  if(editingId){ Object.assign(state.ots.find(x=>x.id===editingId), data); toast(`${editingId} actualizada`); }
+  else{ state.seq++; const id='OT-2026-'+String(state.seq).padStart(3,'0'); state.ots.push({id, ...data, created:todayStr(), returns:[]}); toast(`${id} creada`); }
+  await store.save(state); closeModal(); render();
+}
+async function deleteOT(){
+  if(!editingId) return;
+  if(!confirm(`¿Eliminar ${editingId}? Esta acción no se puede deshacer.`)) return;
+  state.ots=state.ots.filter(x=>x.id!==editingId);
+  await store.save(state); closeModal(); render(); toast('OT eliminada');
+}
+
+// ---------- Filtros / clubes ----------
+function clubs(){return [...new Set(state.ots.map(o=>o.club))].sort();}
+function refreshClubFilters(){
+  const sel=document.getElementById('fClub'), cur=sel.value;
+  sel.innerHTML='<option value="">Todos los clubes</option>'+clubs().map(c=>`<option>${esc(c)}</option>`).join('');
+  sel.value=clubs().includes(cur)?cur:'';
+}
+function refreshClubList(){document.getElementById('clubList').innerHTML=clubs().map(c=>`<option>${esc(c)}</option>`).join('');}
+
+// ---------- Drag & drop ----------
+function clearDropTargets(){document.querySelectorAll('.col.drop-target').forEach(c=>c.classList.remove('drop-target'));}
+
+// ---------- UI ----------
+function bindUI(){
+  document.getElementById('btnNew').onclick=()=>openModal(null);
+  document.getElementById('mClose').onclick=closeModal;
+  document.getElementById('mCancel').onclick=closeModal;
+  document.getElementById('mSave').onclick=saveOT;
+  document.getElementById('mDelete').onclick=deleteOT;
+  document.getElementById('scrim').onclick=e=>{if(e.target.id==='scrim')closeModal();};
+  document.getElementById('rClose').onclick=closeReturn;
+  document.getElementById('rCancel').onclick=closeReturn;
+  document.getElementById('rConfirm').onclick=confirmReturn;
+  document.getElementById('scrim2').onclick=e=>{if(e.target.id==='scrim2')closeReturn();};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeReturn();}});
+  document.getElementById('search').oninput=e=>{filters.q=e.target.value; render();};
+  document.getElementById('fClub').onchange=e=>{filters.club=e.target.value; render();};
+  document.getElementById('fPrio').onchange=e=>{filters.prio=e.target.value; render();};
+  document.getElementById('btnReset').onclick=async()=>{
+    if(!confirm('¿Reiniciar con los datos de ejemplo? Se borrarán las OT actuales.')) return;
+    state=seed(); await store.save(state); filters={stage:'',club:'',prio:'',q:''};
+    document.getElementById('search').value=''; document.getElementById('fClub').value=''; document.getElementById('fPrio').value='';
+    render(); toast('Datos reiniciados');
+  };
+
+  const board=document.getElementById('board');
+  board.addEventListener('dragover',e=>{
+    const col=e.target.closest('.col'); if(!col) return;
+    e.preventDefault(); e.dataTransfer.dropEffect='move';
+    if(col!==dragCol){ clearDropTargets(); col.classList.add('drop-target'); dragCol=col; }
+  });
+  board.addEventListener('drop',e=>{
+    e.preventDefault();
+    const col=e.target.closest('.col'); clearDropTargets(); dragCol=null;
+    if(col && dragId){ const id=dragId; dragId=null; requestMove(id, col.dataset.stage); }
+  });
+  board.addEventListener('dragleave',e=>{ if(!e.relatedTarget || !board.contains(e.relatedTarget)){ clearDropTargets(); dragCol=null; } });
+}
+
+// ---------- utils ----------
+function val(id){return document.getElementById(id).value;}
+function gv(id,v){document.getElementById(id).value = v??'';}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+let toastT;
+function toast(msg){const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1900);}
+</script>
