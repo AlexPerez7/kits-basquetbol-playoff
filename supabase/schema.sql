@@ -49,14 +49,25 @@ insert into responsables(name, stage) values
 on conflict (name, stage) do nothing;
 
 -- Genera el próximo número de secuencia para IDs 'OT-2026-001', de forma
--- atómica aunque dos personas creen una OT al mismo tiempo.
+-- atómica aunque dos personas creen una OT al mismo tiempo (el UPDATE toma
+-- un lock de fila) y autocorrectiva: si "meta.value" quedara desincronizado
+-- del contenido real de "ots" (ej. tras un reinicio manual de datos), toma
+-- el mayor entre ambos antes de incrementar, para nunca repetir un ID ya
+-- usado.
 create or replace function next_ot_seq()
 returns int
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
-  update meta set value = value + 1 where key = 'seq' returning value;
+declare
+  max_used int;
+  next_val int;
+begin
+  select coalesce(max((regexp_match(id, 'OT-\d{4}-(\d+)'))[1]::int), 0) into max_used from ots;
+  update meta set value = greatest(value, max_used) + 1 where key = 'seq' returning value into next_val;
+  return next_val;
+end;
 $$;
 
 -- Trigger para mantener updated_at al día en cada UPDATE.

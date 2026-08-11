@@ -76,7 +76,7 @@ function seed(){
   const t=off=>Math.round(nowMs+off*86400000);
   const R={ot:'Valentina', diseno:'Alejandro', impresion:'Gonzi', estampado:'Maxi', corte:'Cami', modista:'Bernardita', entrega:'Nohemi'};
   const hist=(createdOff, stageK)=>{ const idx=stageIdx(stageK), span=-createdOff, per=span/(idx+1), h=[]; for(let i=0;i<=idx;i++){ h.push({stage:STAGES[i].k, at:t(createdOff+per*i), resp:R[STAGES[i].k]||''}); } return h; };
-  return {seq:6, ots:[
+  return {ots:[
     {id:'OT-2026-001', club:'Puente Alto', items:[{prod:'Camiseta',qty:15},{prod:'Short',qty:15}], prio:'Crítica', resp:'Alejandro', stage:'diseno', notes:'Colores azul/blanco, números 4–15.', created:d(-5), returns:[], history:hist(-5,'diseno')},
     {id:'OT-2026-002', club:'Español de Talca', items:[{prod:'Polera reversible',qty:12}], prio:'Media', resp:'Gonzi', stage:'impresion', notes:'Sublimación full, escudo bordado.', created:d(-18), returns:[{from:'impresion',to:'diseno',area:'Impresión',by:'Gonzi',motivo:'Archivo de impresión en baja resolución.',date:d(-13)}], history:hist(-18,'impresion')},
     {id:'OT-2026-003', club:'Ancud', items:[{prod:'Polerón',qty:20}], prio:'Baja', resp:'Cami', stage:'corte', notes:'Tallas mixtas S–XL.', created:d(-25), returns:[], history:hist(-25,'corte')},
@@ -567,8 +567,6 @@ function bindUI(){
       if(delOtsErr) throw delOtsErr;
       const {error:delCommentsErr}=await sb.from('comments').delete().neq('person','');
       if(delCommentsErr) throw delCommentsErr;
-      const {error:seqErr}=await sb.from('meta').update({value:seedData.seq}).eq('key','seq');
-      if(seqErr) throw seqErr;
       const {error:insErr}=await sb.from('ots').insert(seedData.ots.map(otToRow));
       if(insErr) throw insErr;
     }catch(err){ console.error(err); toast('Error al reiniciar los datos.'); return; }
