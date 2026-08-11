@@ -43,9 +43,11 @@ styles.css                          estilos (extraídos del original)
 app.js                              toda la lógica: estado, render, Supabase, realtime
 supabase-config.js                  credenciales del proyecto Supabase (URL + anon key)
 supabase/
-  schema.sql                        esquema completo, para un proyecto Supabase nuevo
+  schema.sql                        esquema completo y al dia, para un proyecto Supabase nuevo
   migrations/
-    002_responsables.sql            cambios incrementales para un proyecto ya existente
+    README.md                       que migracion correr y en que orden
+    002_responsables.sql            agrega la tabla responsables (ejecutar antes que 003)
+    003_next_ot_seq_self_healing.sql corrige la generacion de IDs de OT (ejecutar despues de 002)
 legacy/
   gestion-produccion-clubes.html    versión original de un solo archivo (ya no se usa)
 ```
@@ -86,11 +88,19 @@ abiertas en Supabase — ver la nota de seguridad más abajo.
    localmente. El tablero arranca vacío — usá el botón **Reiniciar** si
    querés cargar datos de ejemplo para probar.
 
-Si el proyecto Supabase ya existía **antes** de que se agregara la tabla
-`responsables` (es decir, ya corriste una versión vieja de `schema.sql`), no
-hace falta re-correr todo: pegá y ejecutá
-[`supabase/migrations/002_responsables.sql`](supabase/migrations/002_responsables.sql)
-en el SQL Editor, que solo agrega lo nuevo sin tocar las OT ya guardadas.
+**Proyecto nuevo:** con el paso 2 (correr `schema.sql` una vez) alcanza, ya
+incluye todo al día — no toques nada de `supabase/migrations/`.
+
+**Proyecto que ya existía** antes de estos cambios (ya habías corrido una
+versión vieja de `schema.sql`): no hace falta re-correr todo, pegá y
+ejecutá en el SQL Editor, **en este orden**, los scripts de
+[`supabase/migrations/`](supabase/migrations/README.md) que todavía no
+hayas corrido:
+
+1. `002_responsables.sql` — agrega la tabla `responsables`.
+2. `003_next_ot_seq_self_healing.sql` — corrige la generación de IDs de OT.
+
+Ninguno de los dos toca las OT que ya tengas guardadas.
 
 ## Desplegado en Netlify (ya configurado)
 
