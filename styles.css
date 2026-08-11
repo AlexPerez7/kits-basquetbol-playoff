@@ -54,6 +54,9 @@ input,select,textarea{font-family:inherit; font-size:14px}
 .toolbar .grow{flex:1 1 200px; min-width:180px}
 .field{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; width:100%; color:var(--ink)}
 select.field{appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%235B6472' stroke-width='1.5' fill='none' stroke-linecap='round'/></svg>"); background-repeat:no-repeat; background-position:right 11px center; padding-right:30px}
+/* Oculta la flechita nativa de Chrome/Edge en inputs con datalist (ej. Club),
+   para que no parezcan un <select> — el campo sigue aceptando texto libre. */
+input[list]::-webkit-calendar-picker-indicator{display:none}
 .btn{border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:9px 14px; font-weight:600; white-space:nowrap; transition:background .15s, border-color .15s}
 .btn:hover{background:#F6F8FC}
 .btn.primary{background:var(--primary); border-color:var(--primary); color:#fff}
