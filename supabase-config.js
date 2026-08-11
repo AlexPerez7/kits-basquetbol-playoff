@@ -3,5 +3,5 @@
 // La "anon public key" está pensada para ser pública (queda protegida por
 // las políticas RLS definidas en supabase/schema.sql), así que no hace
 // falta ocultarla ni tratarla como secreta.
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-PUBLIC-KEY';
+const SUPABASE_URL = "https://aquvhhtccbqlycxfeyaq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_oFNWM7D8q2meVEU8g8QhPQ_T-AJZIqj";
