@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlayOff — Gestión de Producción</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="conn-banner" id="connBanner">⚠ Desconectado del servidor, reconectando…</div>
+
+<header class="scoreboard">
+  <div class="topline">
+    <div class="brand">
+      <img class="logo" src="https://playoff.cl/wp-content/uploads/2022/05/logo-chico-blanco.png" alt="PlayOff" onerror="this.style.display='none';document.getElementById('wordmark').style.display='inline'">
+      <span id="wordmark" class="wordmark" style="display:none">PLAYOFF</span>
+      <span class="sub">Gestión de Producción</span>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="kpiActivas">0</div><div class="l">Activas</div></div>
+      <div class="kpi crit"><div class="n" id="kpiCrit">0</div><div class="l">Código Negro</div></div>
+      <div class="kpi alert"><div class="n" id="kpiAtras">0</div><div class="l">Atrasadas</div></div>
+      <div class="kpi"><div class="n" id="kpiEntreg">0</div><div class="l">Entregadas</div></div>
+    </div>
+  </div>
+  <nav class="pipeline" id="pipeline" aria-label="Etapas de producción"></nav>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-view="board">Tablero</button>
+  <button class="tab" data-view="resumen">Resumen</button>
+</div>
+
+<div id="viewBoard">
+  <div class="toolbar">
+    <button class="btn primary" id="btnNew">+ Nueva OT</button>
+    <div class="grow"><input class="field" id="search" type="search" placeholder="Buscar OT, club o producto…" aria-label="Buscar"></div>
+    <select class="field" id="fClub" style="max-width:200px" aria-label="Filtrar por club"><option value="">Todos los clubes</option></select>
+    <select class="field" id="fPrio" style="max-width:170px" aria-label="Filtrar por prioridad">
+      <option value="">Toda prioridad</option><option value="Crítica">Código Negro</option><option value="Alta">Alta</option><option value="Media">Media</option><option value="Baja">Baja</option>
+    </select>
+    <span class="chip" id="stageChip" style="display:none"></span>
+    <button class="btn ghost" id="btnReset" title="Reiniciar datos de ejemplo">Reiniciar</button>
+  </div>
+  <div class="board" id="board"></div>
+  <p class="footer-note" id="foot"></p>
+</div>
+
+<div id="viewResumen" class="resumen" style="display:none">
+  <h2>Carga laboral del equipo</h2>
+  <div class="team-grid" id="teamGrid"></div>
+  <h2>Tiempos por etapa <span style="font-weight:400;font-size:12px;color:var(--muted)">· reloj en vivo</span></h2>
+  <div id="leadStat" class="lead-stat"></div>
+  <table class="htable" style="margin-bottom:30px">
+    <thead><tr><th>Etapa</th><th class="num">OT actuales</th><th class="num">Prom. histórico</th><th class="num">En curso ⏱</th></tr></thead>
+    <tbody id="tiemposBody"></tbody>
+  </table>
+  <h2>Histórico de clientes · <span id="histYear"></span></h2>
+  <p style="font-size:12px;color:var(--muted);margin:-4px 0 12px">Haz clic en un club para ver cada OT con su pedido y el responsable de cada proceso.</p>
+  <table class="htable">
+    <thead><tr><th>Club</th><th class="num">OTs</th><th class="num">Unidades</th><th>Última OT</th></tr></thead>
+    <tbody id="histBody"></tbody>
+  </table>
+</div>
+
+<!-- Modal OT -->
+<div class="scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <header><h2 id="mTitle">Nueva OT</h2><button class="x" id="mClose" aria-label="Cerrar">✕</button></header>
+    <div class="body">
+      <div class="full rt-info" id="mStale" style="display:none;background:#FEF3D6;border-color:#EAB308">
+        ⚠ Esta OT fue modificada por otro usuario mientras la editabas.
+        <button type="button" class="btn" id="mStaleReload" style="margin-left:8px">Recargar valores</button>
+      </div>
+      <div class="full"><label class="lbl" for="fClubName">Club *</label><input class="field" id="fClubName" list="clubList" placeholder="Ej: Puente Alto"></div>
+      <datalist id="clubList"></datalist>
+      <div class="full"><label class="lbl">Productos (hasta 3)</label><div id="itemsWrap"></div><button type="button" class="add-item" id="addItem">+ Agregar producto</button></div>
+      <div><label class="lbl" for="fPrioM">Prioridad</label><select class="field" id="fPrioM">
+        <option value="Crítica">Código Negro (crítica)</option><option>Alta</option><option selected>Media</option><option>Baja</option>
+      </select></div>
+      <div><label class="lbl" for="fStage">Etapa actual</label><select class="field" id="fStage"></select></div>
+      <div><label class="lbl" for="fResp">Responsable</label><select class="field" id="fResp"></select></div>
+      <div><label class="lbl" for="fInicio">Fecha de inicio</label><input class="field" id="fInicio" type="date"></div>
+      <div class="full rt-info" id="plazoInfo"></div>
+      <div class="full"><label class="lbl" for="fNotes">Notas / especificaciones</label><textarea class="field" id="fNotes" placeholder="Tallas, colores, números, nombres de jugadores…"></textarea></div>
+      <div class="full" id="histWrap" style="display:none"><label class="lbl">Historial de retrocesos</label><div id="histReturns" class="hist"></div></div>
+    </div>
+    <footer>
+      <button class="btn del" id="mDelete" style="display:none">Eliminar</button>
+      <button class="btn" id="mCancel">Cancelar</button>
+      <button class="btn primary" id="mSave">Guardar OT</button>
+    </footer>
+  </div>
+</div>
+
+<!-- Modal Retroceso -->
+<div class="scrim" id="scrim2">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rTitle">
+    <header><h2 id="rTitle">Registrar retroceso</h2><button class="x" id="rClose" aria-label="Cerrar">✕</button></header>
+    <div class="body">
+      <div class="full rt-info" id="rInfo"></div>
+      <div><label class="lbl" for="rArea">Área que devuelve *</label><select class="field" id="rArea"></select></div>
+      <div><label class="lbl" for="rBy">Reportado por</label><input class="field" id="rBy" placeholder="Persona"></div>
+      <div class="full"><label class="lbl" for="rResp">Nuevo responsable</label><select class="field" id="rResp"></select></div>
+      <div class="full"><label class="lbl" for="rMotivo">Motivo del retroceso *</label><textarea class="field" id="rMotivo" placeholder="Ej: números mal ubicados, tela con falla, medidas erradas…"></textarea></div>
+    </div>
+    <footer>
+      <button class="btn" id="rCancel">Cancelar</button>
+      <button class="btn danger" id="rConfirm">Confirmar retroceso</button>
+    </footer>
+  </div>
+</div>
+
+<!-- Modal Asignar responsable -->
+<div class="scrim" id="scrim3">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aTitle">
+    <header><h2 id="aTitle">Asignar responsable</h2><button class="x" id="aClose" aria-label="Cerrar">✕</button></header>
+    <div class="body">
+      <div class="full rt-info" id="aInfo"></div>
+      <div class="full" id="aOptions"></div>
+    </div>
+    <footer><button class="btn" id="aCancel">Cancelar</button></footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+-- PlayOff — Gestión de Producción
+-- Ejecutar este script completo en el SQL Editor de tu proyecto Supabase
+-- (Project > SQL Editor > New query > pegar todo > Run).
+
+create table if not exists ots (
+  id         text primary key,
+  club       text not null,
+  items      jsonb not null default '[]',
+  prio       text not null default 'Media',
+  prio_prev  text,
+  resp       text default '',
+  stage      text not null default 'ot',
+  notes      text default '',
+  created    date not null,
+  returns    jsonb not null default '[]',
+  history    jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists comments (
+  person text primary key,
+  text   text not null default ''
+);
+
+create table if not exists meta (
+  key   text primary key,
+  value int not null
+);
+insert into meta(key, value) values ('seq', 0)
+  on conflict (key) do nothing;
+
+-- Quién puede ser responsable de cada etapa. Relación muchos-a-muchos: una
+-- persona puede aparecer en más de una etapa (ej. Valentina en OT y Entrega).
+create table if not exists responsables (
+  id    bigserial primary key,
+  name  text not null,
+  stage text not null
+);
+create unique index if not exists responsables_name_stage_idx on responsables(name, stage);
+
+insert into responsables(name, stage) values
+  ('Valentina','ot'), ('Nohemi','ot'),
+  ('Alejandro','diseno'), ('Joaquín','diseno'),
+  ('Gonzi','impresion'),
+  ('Maxi','estampado'),
+  ('Cami','corte'),
+  ('Bernardita','modista'), ('Mirtha','modista'), ('Romane','modista'), ('Jimena','modista'),
+  ('Nohemi','entrega'), ('Valentina','entrega'), ('César','entrega')
+on conflict (name, stage) do nothing;
+
+-- Genera el próximo número de secuencia para IDs 'OT-2026-001', de forma
+-- atómica aunque dos personas creen una OT al mismo tiempo (el UPDATE toma
+-- un lock de fila) y autocorrectiva: si "meta.value" quedara desincronizado
+-- del contenido real de "ots" (ej. tras un reinicio manual de datos), toma
+-- el mayor entre ambos antes de incrementar, para nunca repetir un ID ya
+-- usado.
+create or replace function next_ot_seq()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  max_used int;
+  next_val int;
+begin
+  select coalesce(max((regexp_match(id, 'OT-\d{4}-(\d+)'))[1]::int), 0) into max_used from ots;
+  update meta set value = greatest(value, max_used) + 1 where key = 'seq' returning value into next_val;
+  return next_val;
+end;
+$$;
+
+-- Trigger para mantener updated_at al día en cada UPDATE.
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists ots_set_updated_at on ots;
+create trigger ots_set_updated_at
+  before update on ots
+  for each row execute function set_updated_at();
+
+-- Habilita Realtime (broadcast en vivo de INSERT/UPDATE/DELETE) para estas tablas.
+alter publication supabase_realtime add table ots;
+alter publication supabase_realtime add table comments;
+
+-- Row Level Security: acceso abierto de lectura/escritura.
+-- Esta app es un "pizarrón compartido" sin login individual — cualquiera con
+-- la URL puede leer y escribir. Mantener esto en una red/URL de confianza
+-- (no publicar el link en un canal público) mientras no exista autenticación.
+alter table ots enable row level security;
+alter table comments enable row level security;
+alter table meta enable row level security;
+alter table responsables enable row level security;
+
+create policy "public read ots"   on ots for select using (true);
+create policy "public insert ots" on ots for insert with check (true);
+create policy "public update ots" on ots for update using (true) with check (true);
+create policy "public delete ots" on ots for delete using (true);
+
+create policy "public read comments"   on comments for select using (true);
+create policy "public insert comments" on comments for insert with check (true);
+create policy "public update comments" on comments for update using (true) with check (true);
+
+create policy "public read meta" on meta for select using (true);
+
+-- Solo lectura por ahora: no hay una pantalla en la app para editar el
+-- equipo/roster todavía, así que se administra desde el SQL Editor.
+create policy "public read responsables" on responsables for select using (true);
+
+grant select, insert, update, delete on ots           to anon, authenticated;
+grant select, insert, update         on comments      to anon, authenticated;
+grant select                         on meta          to anon, authenticated;
+grant select                         on responsables  to anon, authenticated;
+grant execute on function next_ot_seq() to anon, authenticated;
+
+-- Nota: no se insertan datos de ejemplo acá. Al abrir la app por primera vez
+-- el tablero estará vacío; usá el botón "Reiniciar" para cargar OTs de
+-- ejemplo si querés probar la app antes de cargar datos reales.
