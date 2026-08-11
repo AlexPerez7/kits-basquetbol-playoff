@@ -234,7 +234,7 @@ function openAssign(o,key){
   document.getElementById('aInfo').innerHTML=`<b>${o.id}</b> pasa a <b style="color:${stageOf(key).hex}">${stageOf(key).n}</b>. ¿Quién la toma?`;
   const team=stageOf(key).team||[];
   const box=document.getElementById('aOptions');
-  box.innerHTML=team.map(p=>`<button class="btn assign-opt" data-p="${esc(p)}">${esc(p)}</button>`).join('')+`<button class="btn assign-opt" data-p="">Sin asignar</button>`;
+  box.innerHTML=team.map(p=>`<button class="btn assign-opt" data-p="${esc(p)}">${esc(p)}</button>`).join('');
   box.querySelectorAll('.assign-opt').forEach(b=>b.onclick=()=>{ const k=pendingAssign.to, o2=state.ots.find(x=>x.id===pendingAssign.id); closeAssign(); if(o2) applyForward(o2, k, b.dataset.p); });
   document.getElementById('scrim3').classList.add('open');
 }
@@ -265,8 +265,8 @@ function openReturn(o, targetKey){
 }
 function fillRespReturn(stageKey, current){
   const team=(stageOf(stageKey)||STAGES[0]).team||[];
-  const preselect = team.includes(current) ? current : (team.length===1 ? team[0] : '');
-  const opts='<option value="">— Sin asignar —</option>'+team.map(p=>`<option ${p===preselect?'selected':''}>${p}</option>`).join('');
+  const preselect = team.includes(current) ? current : (team[0]||'');
+  const opts=team.map(p=>`<option ${p===preselect?'selected':''}>${p}</option>`).join('');
   const sel=document.getElementById('rResp'); sel.innerHTML=opts; sel.value=preselect;
 }
 function closeReturn(){ document.getElementById('scrim2').classList.remove('open'); pendingReturn=null; }
@@ -331,9 +331,10 @@ function renderItemRows(){
 
 function fillResp(stageKey, current){
   const team=(stageOf(stageKey)||STAGES[0]).team||[];
-  let opts='<option value="">— Sin asignar —</option>'+team.map(p=>`<option ${p===current?'selected':''}>${p}</option>`).join('');
+  let opts=team.map(p=>`<option ${p===current?'selected':''}>${p}</option>`).join('');
   if(current && !team.includes(current)) opts+=`<option selected>${esc(current)}</option>`;
-  const sel=document.getElementById('fResp'); sel.innerHTML=opts; sel.value=current||'';
+  const sel=document.getElementById('fResp'); sel.innerHTML=opts;
+  sel.value = current || team[0] || '';
 }
 
 function refreshPlazo(){
