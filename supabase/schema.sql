@@ -29,6 +29,25 @@ create table if not exists meta (
 insert into meta(key, value) values ('seq', 0)
   on conflict (key) do nothing;
 
+-- Quién puede ser responsable de cada etapa. Relación muchos-a-muchos: una
+-- persona puede aparecer en más de una etapa (ej. Valentina en OT y Entrega).
+create table if not exists responsables (
+  id    bigserial primary key,
+  name  text not null,
+  stage text not null
+);
+create unique index if not exists responsables_name_stage_idx on responsables(name, stage);
+
+insert into responsables(name, stage) values
+  ('Valentina','ot'), ('Nohemi','ot'),
+  ('Alejandro','diseno'), ('Joaquín','diseno'),
+  ('Gonzi','impresion'),
+  ('Maxi','estampado'),
+  ('Cami','corte'),
+  ('Bernardita','modista'), ('Mirtha','modista'), ('Romane','modista'), ('Jimena','modista'),
+  ('Nohemi','entrega'), ('Valentina','entrega'), ('César','entrega')
+on conflict (name, stage) do nothing;
+
 -- Genera el próximo número de secuencia para IDs 'OT-2026-001', de forma
 -- atómica aunque dos personas creen una OT al mismo tiempo.
 create or replace function next_ot_seq()
@@ -67,6 +86,7 @@ alter publication supabase_realtime add table comments;
 alter table ots enable row level security;
 alter table comments enable row level security;
 alter table meta enable row level security;
+alter table responsables enable row level security;
 
 create policy "public read ots"   on ots for select using (true);
 create policy "public insert ots" on ots for insert with check (true);
@@ -79,9 +99,14 @@ create policy "public update comments" on comments for update using (true) with 
 
 create policy "public read meta" on meta for select using (true);
 
-grant select, insert, update, delete on ots       to anon, authenticated;
-grant select, insert, update         on comments  to anon, authenticated;
-grant select                         on meta      to anon, authenticated;
+-- Solo lectura por ahora: no hay una pantalla en la app para editar el
+-- equipo/roster todavía, así que se administra desde el SQL Editor.
+create policy "public read responsables" on responsables for select using (true);
+
+grant select, insert, update, delete on ots           to anon, authenticated;
+grant select, insert, update         on comments      to anon, authenticated;
+grant select                         on meta          to anon, authenticated;
+grant select                         on responsables  to anon, authenticated;
 grant execute on function next_ot_seq() to anon, authenticated;
 
 -- Nota: no se insertan datos de ejemplo acá. Al abrir la app por primera vez

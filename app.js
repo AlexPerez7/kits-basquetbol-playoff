@@ -1,15 +1,25 @@
 const STAGES = [
-  {k:'ot',        n:'OT',        ab:'OT', hex:'#6366F1', d:'Orden de trabajo confirmada', team:['Valentina','Nohemi']},
-  {k:'diseno',    n:'Diseño',    ab:'DS', hex:'#A855F7', d:'Diseño gráfico del kit',      team:['Alejandro','Joaquín']},
-  {k:'impresion', n:'Impresión', ab:'IM', hex:'#EC4899', d:'Impresión',                   team:['Gonzi']},
-  {k:'estampado', n:'Estampado', ab:'ES', hex:'#F97316', d:'Estampado',                   team:['Maxi']},
-  {k:'corte',     n:'Corte',     ab:'CO', hex:'#EAB308', d:'Corte de piezas',             team:['Cami']},
-  {k:'modista',   n:'Modista',   ab:'MD', hex:'#10B981', d:'Confección y costura',        team:['Bernardita','Mirtha','Romane','Jimena']},
-  {k:'entrega',   n:'Entrega',   ab:'EN', hex:'#16A34A', d:'Entrega final al club',       team:['Nohemi','Valentina','César']},
+  {k:'ot',        n:'OT',        ab:'OT', hex:'#6366F1', d:'Orden de trabajo confirmada', team:[]},
+  {k:'diseno',    n:'Diseño',    ab:'DS', hex:'#A855F7', d:'Diseño gráfico del kit',      team:[]},
+  {k:'impresion', n:'Impresión', ab:'IM', hex:'#EC4899', d:'Impresión',                   team:[]},
+  {k:'estampado', n:'Estampado', ab:'ES', hex:'#F97316', d:'Estampado',                   team:[]},
+  {k:'corte',     n:'Corte',     ab:'CO', hex:'#EAB308', d:'Corte de piezas',             team:[]},
+  {k:'modista',   n:'Modista',   ab:'MD', hex:'#10B981', d:'Confección y costura',        team:[]},
+  {k:'entrega',   n:'Entrega',   ab:'EN', hex:'#16A34A', d:'Entrega final al club',       team:[]},
 ];
 const PRIOS={'Crítica':{cls:'p-critica',label:'Código Negro',rank:0},'Alta':{cls:'p-alta',label:'Alta',rank:1},'Media':{cls:'p-media',label:'Media',rank:2},'Baja':{cls:'p-baja',label:'Baja',rank:3}};
 const PRODUCTS=['Polera','Short','Camiseta','Polerón','Polera reversible','Pantalón'];
-const PEOPLE=['Valentina','Nohemi','Alejandro','Joaquín','Gonzi','Maxi','Cami','Bernardita','Mirtha','Romane','Jimena','César'];
+// STAGES[].team y PEOPLE se completan en init() desde la tabla "responsables"
+// de Supabase (ver applyResponsables) — acá quedan vacíos como placeholder.
+let PEOPLE=[];
+function applyResponsables(rows){
+  const byStage={}; STAGES.forEach(s=>byStage[s.k]=[]);
+  (rows||[]).forEach(r=>{ if(byStage[r.stage]) byStage[r.stage].push(r.name); });
+  STAGES.forEach(s=>{ s.team=byStage[s.k]; });
+  const seen=new Set(), people=[];
+  STAGES.forEach(s=>s.team.forEach(n=>{ if(!seen.has(n)){ seen.add(n); people.push(n); } }));
+  PEOPLE=people;
+}
 const stageIdx = k => STAGES.findIndex(s=>s.k===k);
 const stageOf  = k => STAGES[stageIdx(k)];
 const prioOf   = p => PRIOS[p] || PRIOS['Media'];
@@ -79,12 +89,14 @@ function seed(){
 // ---------- Init ----------
 (async function init(){
   try{
-    const [{data:otRows,error:e1}, {data:commentRows,error:e2}] = await Promise.all([
+    const [{data:otRows,error:e1}, {data:commentRows,error:e2}, {data:respRows,error:e3}] = await Promise.all([
       sb.from('ots').select('*'),
       sb.from('comments').select('*'),
+      sb.from('responsables').select('*').order('id'),
     ]);
-    if(e1) throw e1; if(e2) throw e2;
+    if(e1) throw e1; if(e2) throw e2; if(e3) throw e3;
     const comments={}; (commentRows||[]).forEach(c=>comments[c.person]=c.text);
+    applyResponsables(respRows);
     state = { ots:(otRows||[]).map(rowToOT), comments };
   }catch(err){
     console.error(err);
@@ -247,8 +259,15 @@ function openReturn(o, targetKey){
   document.getElementById('rBy').value=o.resp||'';
   document.getElementById('rMotivo').value='';
   document.getElementById('rInfo').innerHTML=`<b>${o.id}</b> retrocede de <b style="color:${stageOf(o.stage).hex}">${stageOf(o.stage).n}</b> → <b style="color:${stageOf(targetKey).hex}">${stageOf(targetKey).n}</b>`;
+  fillRespReturn(targetKey, o.resp);
   document.getElementById('scrim2').classList.add('open');
   setTimeout(()=>document.getElementById('rMotivo').focus(),50);
+}
+function fillRespReturn(stageKey, current){
+  const team=(stageOf(stageKey)||STAGES[0]).team||[];
+  const preselect = team.includes(current) ? current : (team.length===1 ? team[0] : '');
+  const opts='<option value="">— Sin asignar —</option>'+team.map(p=>`<option ${p===preselect?'selected':''}>${p}</option>`).join('');
+  const sel=document.getElementById('rResp'); sel.innerHTML=opts; sel.value=preselect;
 }
 function closeReturn(){ document.getElementById('scrim2').classList.remove('open'); pendingReturn=null; }
 async function confirmReturn(){
@@ -257,9 +276,8 @@ async function confirmReturn(){
   if(!motivo){ document.getElementById('rMotivo').focus(); toast('Indica el motivo del retroceso'); return; }
   const o=state.ots.find(x=>x.id===pendingReturn.id); if(!o){ closeReturn(); return; }
   const area=document.getElementById('rArea').value, by=document.getElementById('rBy').value.trim();
+  const newResp=document.getElementById('rResp').value;
   const newReturns=(o.returns||[]).concat([{from:pendingReturn.from, to:pendingReturn.to, area, by, motivo, date:todayStr()}]);
-  const rteam=stageOf(pendingReturn.to).team||[];
-  const newResp = rteam.length===1 ? rteam[0] : (o.resp||'');
   const newHistory=(o.history||[]).concat([{stage:pendingReturn.to, at:Date.now(), resp:newResp||''}]);
   const updated={...o, returns:newReturns, resp:newResp, history:newHistory, stage:pendingReturn.to};
   try{
